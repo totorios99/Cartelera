@@ -24,7 +24,7 @@ admin = False
 peliculas = []
 
 def database_connection():
-  peliculas = db.Películas
+  peliculas = collection.Películas
   cursor = peliculas.find()
   for i in cursor:
     print(i['Name'])
@@ -53,7 +53,7 @@ def validate_credentials():
     admin = True
 
   elif (auth[0] == DEFAULT_USER and auth[1] == DEFAULT_PASS):
-    print('Bienvenido al sistema de cartelera')
+    print('Hola {}, bienvenido'.format(auth[0].capitalize()))
     
   else:
     print('Usuario no registrado. Intententa de nuevo')
@@ -74,19 +74,63 @@ def validate_billboard(id_estado, id_municipio):
       isValid = True
   except:
     print('La cartelera seleccionada no es válida')
+    id_estado, id_municipio = get_billboard()
+    validate_billboard(id_estado, id_municipio)
 
   return isValid
 
-def main():
-  menu()
-  validate_credentials()
-  id_estado, id_municipio = get_billboard()
-  validate_billboard(id_estado, id_municipio)
+def new_movie(database):
+  movie_info = get_movie_data()
+  print(movie_info)
+  movie_doc = {
+    "Name": movie_info[0],
+    "Director": movie_info[1],
+    "Producer": movie_info[2],
+    "Rating": movie_info[3],
+    "Running_time": movie_info[4],
+    "Genre": movie_info[5],
+  }
+
+  database.insert_one(movie_doc)
   
-  if (admin):
-    menu_admin()
-  else:
-    menu_usuario()
+def get_movie_data():
+  movie_info = []
+  selected_genres = []
+  genres = ['Acción', 'Aventuras', 'Ciencia ficción', 'Comedia', 'Drama', 'Thriller', 'Suspenso', 'Terror', 'Romance', 'Animación']
+  movie_info.append(input('Nombre: '))
+  movie_info.append(input('Director: ').split(','))
+  movie_info.append(input('Productor: ').split(','))
+  movie_info.append(input('Clasficación: '))
+  movie_info.append(input('Duración: '))
+  tmp_genre = input('Género (Elija una opción): ').split(',')
+  try:
+    tmp_genre = [int(gen) for gen in tmp_genre]
+    for i in tmp_genre:
+      selected_genres.append(genres[i - 1])
+      
+    movie_info.append(selected_genres)
+
+  except:
+    print('La introducción de valores no es correcta')
+  return movie_info
+  
+def main():
+  # menu()
+  # validate_credentials()
+  # id_estado, id_municipio = get_billboard()
+  # validate_billboard(id_estado, id_municipio)
+
+  # if (admin):
+  #   menu_admin()
+  #   accion = int(input('Elija una opción: '))
+  #   if(accion == 1):
+  #     new_movie('Jalisco')
+
+  # else:
+  #   menu_usuario()
+  database = db.Jalisco
+  
+  new_movie(database)
 
 if __name__ == '__main__':
   main()
