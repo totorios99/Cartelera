@@ -119,14 +119,16 @@ def get_movie_data():
   
 def new_schedule(database, municipio):
   movies = get_movies(database, municipio)
+
   if len(movies) > 0:
-    print('-|Introduzca los datos|-')
     selected_schedules = []
+    print('-|Introduzca los datos|-')
+    
     for i in range(len(movies)):
       print('{} - {}'.format(i + 1, movies[i]['Name']))
 
     selected_movie = int(input('Elija una película para dar de alta el horario: ')) - 1
-    schedule_quantity = int(input('Ingrese la cantidad de horarios a registrar para {}: '.format(movies[selected_movie]['Name'])))
+    schedule_quantity = int(input('Ingrese la cantidad de horarios a registrar para {} (MAX 10): '.format(movies[selected_movie]['Name'])))
 
     for i in range(schedule_quantity):
       print('Horario {}'.format(i + 1))
@@ -154,7 +156,6 @@ def delete_movie(database, municipio):
   movies = get_movies(database, municipio)
   if len(movies) > 0:
     print('-|Eliminar película|-')
-    selected_schedules = []
     for i in range(len(movies)):
       print('{} - {}'.format(i + 1, movies[i]['Name']))
 
@@ -163,6 +164,44 @@ def delete_movie(database, municipio):
     print('Película eliminada correctamente')
   else:
     print('No hay películas registradas aún')
+
+def modify_movie(database, municipio):
+  selected_movie = get_user_selected_movie(database, municipio, 2)
+  if selected_movie != -1:
+    movie_info = get_movie_data()
+    try:
+      database.update_one(
+        {"_id": selected_movie[1]},
+        {"$set": {
+          "Name": movie_info[0],
+          "Director": movie_info[1],
+          "Producer": movie_info[2],
+          "Rating": movie_info[3],
+          "Running_time": movie_info[4],
+          "Genre": movie_info[5],
+          }
+        }
+      )
+      
+      print('Película actualizada exitosamente')
+    except:
+      print('Ocurrió un error al actualizar la película. Intente de nuevo')
+
+def get_user_selected_movie(database, municipio, action):
+  movies = get_movies(database, municipio)
+  header = ['Introduzca los datos', 'Eliminar película', 'Modificar película']
+
+  if len(movies) > 0:
+    print('-|{}|-'.format(header[action]))
+    for i in range(len(movies)):
+      print('{} - {}'.format(i + 1, movies[i]['Name']))
+
+    selected_movie = int(input('Elija una película: ')) - 1
+    return [selected_movie, movies[selected_movie]['_id']];
+    
+  else:
+    print('No hay películas registradas aún')
+    return -1
 
 def main():
   # menu()
@@ -183,6 +222,7 @@ def main():
   
   # new_schedule(selected_database, 'Zapopan')
   # delete_movie(selected_database, 'Zapopan')
+  modify_movie(selected_database, 'Zapopan')
   
 
 if __name__ == '__main__':
