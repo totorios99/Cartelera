@@ -1,4 +1,5 @@
 import json
+import os
 from getpass import getpass
 from decouple import config
 from pymongo import MongoClient
@@ -27,7 +28,7 @@ def menu():
   print('Bienvenido a cartelera. Ingrese su usuario')
 
 def menu_admin():
-  print('1. Alta película \n2. Alta horario \n3. Baja película \n4. Baja horario \n5. Modificar película \n6. Consultar película \n7. Consultar cartelera \n8. Salir')
+  print('\n1. Alta película \n2. Alta horario \n3. Baja película \n4. Baja horario \n5. Modificar película \n6. Consultar película \n7. Consultar cartelera \n8. Salir')
 
 def menu_usuario():
   print('1. Buscar película por nombre \n2. Buscar película por clasificación \n3. Buscar película por género \n4. Ordenar Cartelera (A y D) \n5. Consultar película \n6. Consultar cartelera \n7. Salir')
@@ -52,22 +53,87 @@ def validate_credentials():
     print('Usuario no registrado. Intententa de nuevo')
     validate_credentials()
 
-def display_billboard(database, municipio, asc=True, time=True): 
+def display_billboard(database, municipio): 
   print('-'*70)
   cursor = horario.find({"Municipio": {"$eq": municipio}})
-  date = []
-  time = []
-  for result in cursor:
-    tmp_date = []
-    tmp_time = []
-    tmp_date.append(int(result['Fecha'].replace('/', '')))
-    tmp_date.append(result['_id'])
-    tmp_time.append(int(result['Hora'].replace(':', '')))
-    tmp_time.append(result['_id'])
-    date.append(tmp_date)
-    time.append(tmp_time)
-    format_schedule(result)
-  print(date, time)
+  results = []
+
+  for i in cursor:
+    results.append(i)
+    
+  if len(results) > 0: 
+    sorted_billboard = []
+    date = []
+    time = []
+    room = []
+    auxDate = []
+    auxTime = []
+    auxRoom = []
+
+    for result in cursor:
+      tmp_date = []
+      tmp_time = []
+      tmp_room = []
+      
+      tmp_date.append(int(result['Fecha'].replace('/', '')))
+      tmp_date.append(result['_id'])
+      auxDate.append(int(result['Fecha'].replace('/', '')))
+
+      tmp_time.append(int(result['Hora'].replace(':', '')))
+      tmp_time.append(result['_id'])
+      auxTime.append(int(result['Hora'].replace(':', '')))
+      
+      tmp_room.append(int(result['Sala']))
+      tmp_room.append(result['_id'])
+      auxRoom.append(int(result['Sala']))
+
+      date.append(tmp_date)
+      time.append(tmp_time)
+      room.append(tmp_room)
+
+      format_schedule(result)
+
+    sorting_option = int(input('\nSi desea ver la cartelera por orden, ingrese \n1. Horario\n2. Fecha\n3. Sala\n4. Salir\n'))
+    if sorting_option == 1:
+      os.system('clear')
+      sorted_schedule = quick(auxTime, 0, len(auxTime) - 1)
+      for i in range(len(sorted_schedule)):
+        for j in time:
+          if sorted_schedule[i] in j:
+            sorted_billboard.append(j[1])
+
+      for movie in range(len(sorted_billboard)):
+        for result in cursor:
+          if result['_id'] == sorted_billboard[movie]:
+            format_schedule(result)
+
+    elif sorting_option == 2:
+      os.system('clear')
+      sorted_schedule = quick(auxDate, 0, len(auxDate) - 1)
+      for i in range(len(sorted_schedule)):
+        for j in date:
+          if sorted_schedule[i] in j:
+            sorted_billboard.append(j[1])
+
+      for movie in range(len(sorted_billboard)):
+        for result in cursor:
+          if result['_id'] == sorted_billboard[movie]:
+            format_schedule(result)
+
+    elif sorting_option == 3:
+      os.system('clear')
+      sorted_schedule = quick(auxRoom, 0, len(auxRoom) - 1)
+      for i in range(len(sorted_schedule)):
+        for j in room:
+          if sorted_schedule[i] in j:
+            sorted_billboard.append(j[1])
+      
+      for movie in range(len(sorted_billboard)):
+        for result in cursor:
+          if result['_id'] == sorted_billboard[movie]:
+            format_schedule(result)
+    else:
+      print('No hay películas registradas aún')
 
 def get_billboard():
   id_estado = input('ID ESTADO: ')
@@ -125,20 +191,31 @@ def get_movie_data():
   return movie_info
   
 def new_schedule(database, municipio):
+  print('\nAlta horario. Recordar que el horario de trabajo es de 11:00 - 00:00')
   selected_movie = get_user_selected_movie(database, municipio, 0)
+  filledSchedule = 0
   if selected_movie != -1:
     schedule_quantity = int(input('Ingrese la cantidad de horarios a registrar para {} (MAX 10): '.format(selected_movie[2])))
+    if schedule_quantity > 10:
+      print('\nEl máximo permitido es 10 horarios por película')
 
-    for i in range(schedule_quantity):
-      print('Horario {}'.format(i + 1))
-      tmp_schedule = {
-        "Película": selected_movie[2],
-        "Sala": int(input('Sala #: ')),
-        "Hora": input('Hora: '),
-        "Fecha": input('Fecha: dd/mm/aaaa: '),
-        "Municipio": municipio
-      }
-      horario.insert_one(tmp_schedule)
+    while filledSchedule <= 10:
+      for i in range(schedule_quantity):
+        print('Horario {}'.format(i + 1))
+        tmp_schedule = {
+          "Película": selected_movie[2],
+          "Sala": int(input('Sala #: ')),
+          "Hora": input('Hora: '),
+          "Fecha": input('Fecha: dd/mm/aaaa: '),
+          "Municipio": municipio,
+          "Duración": input('Duración: ')
+        }
+        
+        if(valid_schedule(tmp_schedule, database, municipio)):
+          horario.insert_one(tmp_schedule)
+          filledSchedule += 1
+        else: 
+          print('Error, la sala no puede ser ocupada en ese horario')
     
   else:
     print('No hay películas registradas aún')
@@ -220,7 +297,7 @@ def get_user_selected_movie(database, municipio, action):
     print('No hay películas registradas aún')
     return -1
 
-def search (database, municipio):
+def search(database, municipio):
   print('Búsqueda')
   tipoBusqueda = int(input('Ingresa el tipo de búsqueda\n1. Nombre\n2. Género\n3. Clasificación\n'))
   if tipoBusqueda == 1:
@@ -236,30 +313,108 @@ def search (database, municipio):
   for result in cursor:
     format_movie(result)
 
+def valid_schedule(schedule, database, municipio):
+  sala = schedule['Sala']
+  hora = schedule['Hora']
+  fecha = schedule['Fecha']
+  duración = schedule['Duración']
+  ocupados = []
+  lapsoTranscurrido = obtener_lapso_transcurrido(hora, fecha, duración)
+
+  if(lapsoTranscurrido[0] < 660 or lapsoTranscurrido[1] > 1430):
+    return False
+
+  roomFilter = database.find({ "$and": [ {"Sala": {"$eq": sala}}, {"Municipio": {"$eq": municipio}} ]})
+  results = []
+  for result in roomFilter:
+    ocupados.append(obtener_lapso_transcurrido(result['Hora'], result['Fecha'], result['Duración']))
+
+  for lapso in ocupados:
+    if lapsoTranscurrido[1] > lapso[1] and lapsoTranscurrido[2] < lapso[2]:
+      return False
+    else:
+      return True
+
+def obtener_lapso_transcurrido(hora, fecha, duración):
+  hora = hora.split(":")
+  fecha = fecha.split("/")
+  horasMin, minutos = int(hora[0]) * 60, int(hora[1])
+  minutosDelDia = horasMin + minutos
+
+  dia, mes, anio = int(fecha[0]), int(fecha[1]) * 30, int(fecha[2])
+  totalDias = dia + mes + anio
+  
+  lapsoTranscurrido = totalDias + minutosDelDia
+  fin = duración + lapsoTranscurrido + 30
+  return [minutosDelDia, lapsoTranscurrido, fin]
+
+def select_database(id_estado):
+  if id_estado == 'J11':
+    return db.Jalisco
+  elif id_estado == 'N11':
+    return db.NuevoLeon
+  elif id_estado == 'E11':
+    return db.EdoMex
+  elif id_estado == 'C11':
+    return db.Tamaulipas
+  else:
+    return db.Sinaloa
+
+def cerrar_db():
+  client.close()
+  
 def main():
-  # menu()
-  # validate_credentials()
-  # id_estado, id_municipio = get_billboard()
-  # validate_billboard(id_estado, id_municipio)
-  selected_database = db.Jalisco
+  salir = False
+  menu()
+  validate_credentials()
+  id_estado, id_municipio = get_billboard()
+  validate_billboard(id_estado, id_municipio)
+  selected_database = select_database(id_estado)
+  municipio_seleccionado = base[id_estado][id_municipio]
 
-  # if (admin):
-  #   menu_admin()
-  #   accion = int(input('Elija una opción: '))
-  #   if(accion == 1):
-        #new_movie(selected_database, municipio)
-  #     new_movie()
-
-  # else:
-  #   menu_usuario()
-  
-  # new_schedule(selected_database, 'Zapopan')
-  # delete_movie(selected_database, 'Zapopan')
-  # modify_movie(selected_database, 'Zapopan')
-  # display_movie(selected_database, 'Zapopan')
-  # display_billboard(selected_database, 'Zapopan')
-  # search(selected_database, 'Zapopan')
-  
+  while not salir:
+    if (admin):
+      menu_admin()
+      accion = int(input('Elija una opción: '))
+      if(accion == 1):
+        new_movie(selected_database, municipio_seleccionado)
+      elif(accion == 2):
+        new_schedule(selected_database, municipio_seleccionado)
+      elif(accion == 3):
+        delete_movie(selected_database, municipio_seleccionado)
+      elif(accion == 4):
+        pass
+      elif(accion == 5):
+        modify_movie(selected_database, municipio_seleccionado)
+      elif(accion == 6):
+        display_movie(selected_database, municipio_seleccionado)
+      elif(accion == 7):
+        display_billboard(selected_database, municipio_seleccionado)
+      elif(accion == 8):
+        cerrar_db()
+        salir = True
+      else:
+        print('Opción incorrecta, intente de nuevo')
+    else:
+      menu_usuario()
+      accion = int(input('Elija una opción: '))
+      if(accion == 1):
+        search(selected_database, municipio_seleccionado)
+      elif(accion == 2):
+        search(selected_database, municipio_seleccionado)
+      elif(accion == 3):
+        search(selected_database, municipio_seleccionado)
+      elif(accion == 4):
+        display_billboard(selected_database, municipio_seleccionado)
+      elif(accion == 5):
+        display_movie(selected_database, municipio_seleccionado)
+      elif(accion == 6):
+        display_billboard(selected_database, municipio_seleccionado)
+      elif(accion == 7):
+        cerrar_db()
+        salir = True
+      else:
+        print('Opción incorrecta, intente de nuevo')
 
 if __name__ == '__main__':
   main()
