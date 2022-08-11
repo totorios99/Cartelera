@@ -1,8 +1,9 @@
+import json
 from getpass import getpass
 from decouple import config
 from pymongo import MongoClient
 from Cartelera import base
-import json
+from ordenamientos import quick, quick_descendente, particion, particion_descendente
 
 # Importando variables de acceso para el admin
 # y usuario no privilegiado, además de las credenciales
@@ -51,8 +52,22 @@ def validate_credentials():
     print('Usuario no registrado. Intententa de nuevo')
     validate_credentials()
 
-def display_billboard():
-  pass
+def display_billboard(database, municipio, asc=True, time=True): 
+  print('-'*70)
+  cursor = horario.find({"Municipio": {"$eq": municipio}})
+  date = []
+  time = []
+  for result in cursor:
+    tmp_date = []
+    tmp_time = []
+    tmp_date.append(int(result['Fecha'].replace('/', '')))
+    tmp_date.append(result['_id'])
+    tmp_time.append(int(result['Hora'].replace(':', '')))
+    tmp_time.append(result['_id'])
+    date.append(tmp_date)
+    time.append(tmp_time)
+    format_schedule(result)
+  print(date, time)
 
 def get_billboard():
   id_estado = input('ID ESTADO: ')
@@ -176,12 +191,15 @@ def display_movie(database, municipio):
     format_movie(result)
 
 def format_movie(movie):
-  print("Nombre: {}".format(movie['Name']))
+  print("\nNombre: {}".format(movie['Name']))
   print("Director: {}".format(', '.join(movie['Director'])))
   print("Productor: {}".format(', '.join(movie['Producer'])))
   print("Clasificación: {}".format(movie['Rating']))
   print("Duración: {} minutos".format(movie['Running_time']))
   print("Género: {}".format(', '.join(movie['Genre'])))
+
+def format_schedule(schedule):
+  print('{}\t\t{}\t{}\t{}'.format(schedule['Película'], schedule['Sala'], schedule['Hora'], schedule['Fecha']))
 
 def get_user_selected_movie(database, municipio, action):
   movies = get_movies(database, municipio)
@@ -201,6 +219,22 @@ def get_user_selected_movie(database, municipio, action):
   else:
     print('No hay películas registradas aún')
     return -1
+
+def search (database, municipio):
+  print('Búsqueda')
+  tipoBusqueda = int(input('Ingresa el tipo de búsqueda\n1. Nombre\n2. Género\n3. Clasificación\n'))
+  if tipoBusqueda == 1:
+    busqueda = input('Ingresa el nombre a buscar: ')
+    cursor = database.find({ "$and": [ {"Name": {"$eq": busqueda}}, {"Municipio": {"$eq": municipio}} ]})
+  elif tipoBusqueda == 2:
+    busqueda = input('Ingresa el género a buscar: ')
+    cursor = database.find({ "$and": [ {"Genre": {"$eq": busqueda}}, {"Municipio": {"$eq": municipio}}]})
+  elif tipoBusqueda == 3:
+    busqueda = input('Ingresa la clasificación a buscar: ')
+    cursor = database.find({ "$and": [ {"Rating": {"$eq": busqueda}}, {"Municipio": {"$eq": municipio}}]})
+
+  for result in cursor:
+    format_movie(result)
 
 def main():
   # menu()
@@ -222,8 +256,9 @@ def main():
   # new_schedule(selected_database, 'Zapopan')
   # delete_movie(selected_database, 'Zapopan')
   # modify_movie(selected_database, 'Zapopan')
-  display_movie(selected_database, 'Zapopan')
-
+  # display_movie(selected_database, 'Zapopan')
+  # display_billboard(selected_database, 'Zapopan')
+  # search(selected_database, 'Zapopan')
   
 
 if __name__ == '__main__':
