@@ -2,6 +2,7 @@ from getpass import getpass
 from decouple import config
 from pymongo import MongoClient
 from Cartelera import base
+import json
 
 # Importando variables de acceso para el admin
 # y usuario no privilegiado, además de las credenciales
@@ -20,15 +21,6 @@ client = MongoClient('mongodb+srv://{}:{}@cluster0.6fzoi.mongodb.net/?retryWrite
 db = client.ColecciónPersonal
 horario = db.Horario
 admin = False
-
-
-
-def database_connection():
-  peliculas = collection.Películas
-  cursor = peliculas.find()
-  for i in cursor:
-    print(i['Name'])
-
 
 def menu():
   print('Bienvenido a cartelera. Ingrese su usuario')
@@ -118,22 +110,14 @@ def get_movie_data():
   return movie_info
   
 def new_schedule(database, municipio):
-  movies = get_movies(database, municipio)
-
-  if len(movies) > 0:
-    selected_schedules = []
-    print('-|Introduzca los datos|-')
-    
-    for i in range(len(movies)):
-      print('{} - {}'.format(i + 1, movies[i]['Name']))
-
-    selected_movie = int(input('Elija una película para dar de alta el horario: ')) - 1
-    schedule_quantity = int(input('Ingrese la cantidad de horarios a registrar para {} (MAX 10): '.format(movies[selected_movie]['Name'])))
+  selected_movie = get_user_selected_movie(database, municipio, 0)
+  if selected_movie != -1:
+    schedule_quantity = int(input('Ingrese la cantidad de horarios a registrar para {} (MAX 10): '.format(selected_movie[2])))
 
     for i in range(schedule_quantity):
       print('Horario {}'.format(i + 1))
       tmp_schedule = {
-        "Película": movies[selected_movie],
+        "Película": selected_movie[2],
         "Sala": int(input('Sala #: ')),
         "Hora": input('Hora: '),
         "Fecha": input('Fecha: dd/mm/aaaa: '),
@@ -153,15 +137,13 @@ def get_movies(database, municipio):
   return results
 
 def delete_movie(database, municipio):
-  movies = get_movies(database, municipio)
-  if len(movies) > 0:
-    print('-|Eliminar película|-')
-    for i in range(len(movies)):
-      print('{} - {}'.format(i + 1, movies[i]['Name']))
-
-    selected_movie = int(input('Elija una película para eliminar: ')) - 1
-    database.delete_one({"_id": movies[selected_movie]['_id']})
-    print('Película eliminada correctamente')
+  selected_movie = get_user_selected_movie(database, municipio, 1)
+  if selected_movie != -1:
+    try:
+      database.delete_one({"_id": selected_movie[1]})
+      print('Película eliminada correctamente')
+    except:
+      print('Hubo un error al eliminar la película')
   else:
     print('No hay películas registradas aún')
 
@@ -187,17 +169,34 @@ def modify_movie(database, municipio):
     except:
       print('Ocurrió un error al actualizar la película. Intente de nuevo')
 
+def display_movie(database, municipio):
+  selected_movie = get_user_selected_movie(database, municipio, 3)
+  cursor = database.find({"_id" : {"$eq": selected_movie[1]}})
+  for result in cursor:
+    format_movie(result)
+
+def format_movie(movie):
+  print("Nombre: {}".format(movie['Name']))
+  print("Director: {}".format(', '.join(movie['Director'])))
+  print("Productor: {}".format(', '.join(movie['Producer'])))
+  print("Clasificación: {}".format(movie['Rating']))
+  print("Duración: {} minutos".format(movie['Running_time']))
+  print("Género: {}".format(', '.join(movie['Genre'])))
+
 def get_user_selected_movie(database, municipio, action):
   movies = get_movies(database, municipio)
-  header = ['Introduzca los datos', 'Eliminar película', 'Modificar película']
+  header = ['Introduzca los datos', 'Eliminar película', 'Modificar película', 'Cartelera']
 
   if len(movies) > 0:
     print('-|{}|-'.format(header[action]))
     for i in range(len(movies)):
       print('{} - {}'.format(i + 1, movies[i]['Name']))
 
-    selected_movie = int(input('Elija una película: ')) - 1
-    return [selected_movie, movies[selected_movie]['_id']];
+    movieIndex = int(input('Elija una película: ')) - 1
+    movieId = movies[movieIndex]['_id']
+    movieName = movies[movieIndex]['Name']
+    
+    return [movieIndex, movieId, movieName];
     
   else:
     print('No hay películas registradas aún')
@@ -222,7 +221,9 @@ def main():
   
   # new_schedule(selected_database, 'Zapopan')
   # delete_movie(selected_database, 'Zapopan')
-  modify_movie(selected_database, 'Zapopan')
+  # modify_movie(selected_database, 'Zapopan')
+  display_movie(selected_database, 'Zapopan')
+
   
 
 if __name__ == '__main__':
