@@ -18,10 +18,10 @@ DATABASE_PASS = config('DB_PASS')
 
 client = MongoClient('mongodb+srv://{}:{}@cluster0.6fzoi.mongodb.net/?retryWrites=true&w=majority'.format(DATABASE_USER, DATABASE_PASS))
 db = client.ColecciónPersonal
-
+horario = db.Horario
 admin = False
 
-peliculas = []
+
 
 def database_connection():
   peliculas = collection.Películas
@@ -79,9 +79,8 @@ def validate_billboard(id_estado, id_municipio):
 
   return isValid
 
-def new_movie(database):
+def new_movie(database, municipio):
   movie_info = get_movie_data()
-  print(movie_info)
   movie_doc = {
     "Name": movie_info[0],
     "Director": movie_info[1],
@@ -89,9 +88,13 @@ def new_movie(database):
     "Rating": movie_info[3],
     "Running_time": movie_info[4],
     "Genre": movie_info[5],
+    "Municipio": municipio
   }
-
-  database.insert_one(movie_doc)
+  try:
+    database.insert_one(movie_doc)
+    print('Película registrada exitosamente')
+  except:
+    print('Ocurrió un error al registrar la película. Intente de nuevo')
   
 def get_movie_data():
   movie_info = []
@@ -107,30 +110,80 @@ def get_movie_data():
     tmp_genre = [int(gen) for gen in tmp_genre]
     for i in tmp_genre:
       selected_genres.append(genres[i - 1])
-      
+
     movie_info.append(selected_genres)
 
   except:
     print('La introducción de valores no es correcta')
   return movie_info
   
+def new_schedule(database, municipio):
+  movies = get_movies(database, municipio)
+  if len(movies) > 0:
+    print('-|Introduzca los datos|-')
+    selected_schedules = []
+    for i in range(len(movies)):
+      print('{} - {}'.format(i + 1, movies[i]['Name']))
+
+    selected_movie = int(input('Elija una película para dar de alta el horario: ')) - 1
+    schedule_quantity = int(input('Ingrese la cantidad de horarios a registrar para {}: '.format(movies[selected_movie]['Name'])))
+
+    for i in range(schedule_quantity):
+      print('Horario {}'.format(i + 1))
+      tmp_schedule = {
+        "Película": movies[selected_movie],
+        "Sala": int(input('Sala #: ')),
+        "Hora": input('Hora: '),
+        "Fecha": input('Fecha: dd/mm/aaaa: '),
+        "Municipio": municipio
+      }
+      horario.insert_one(tmp_schedule)
+    
+  else:
+    print('No hay películas registradas aún')
+
+def get_movies(database, municipio):
+  cursor = database.find({"Municipio" :{"$eq": municipio}})
+  results = []
+  for i in cursor:
+    results.append(i)
+
+  return results
+
+def delete_movie(database, municipio):
+  movies = get_movies(database, municipio)
+  if len(movies) > 0:
+    print('-|Eliminar película|-')
+    selected_schedules = []
+    for i in range(len(movies)):
+      print('{} - {}'.format(i + 1, movies[i]['Name']))
+
+    selected_movie = int(input('Elija una película para eliminar: ')) - 1
+    database.delete_one({"_id": movies[selected_movie]['_id']})
+    print('Película eliminada correctamente')
+  else:
+    print('No hay películas registradas aún')
+
 def main():
   # menu()
   # validate_credentials()
   # id_estado, id_municipio = get_billboard()
   # validate_billboard(id_estado, id_municipio)
+  selected_database = db.Jalisco
 
   # if (admin):
   #   menu_admin()
   #   accion = int(input('Elija una opción: '))
   #   if(accion == 1):
-  #     new_movie('Jalisco')
+        #new_movie(selected_database, municipio)
+  #     new_movie()
 
   # else:
   #   menu_usuario()
-  database = db.Jalisco
   
-  new_movie(database)
+  # new_schedule(selected_database, 'Zapopan')
+  # delete_movie(selected_database, 'Zapopan')
+  
 
 if __name__ == '__main__':
   main()
